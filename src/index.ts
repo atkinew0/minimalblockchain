@@ -71,7 +71,7 @@ class Blockchain {
     addBlock(block: Block){
 
         block.previousHash = this.getLastBlock().hash;
-
+        block.hash = block.getHash();
         this.blocks.push(block);
 
     }
