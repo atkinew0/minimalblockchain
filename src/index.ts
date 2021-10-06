@@ -23,14 +23,14 @@ class Transaction {
 class Block {
 
 
-    index:number;
+    
     timeStamp:number;
     transactions: Transaction[];
     previousHash: string;
     hash:string;
 
-    constructor(index:number, timeStamp: number, transactions: Transaction[], previousHash:string =""){
-        this.index = index;
+    constructor(timeStamp: number, transactions: Transaction[], previousHash:string =""){
+        
         this.timeStamp = timeStamp;
         this.transactions = transactions;
         this.previousHash = previousHash;
@@ -43,7 +43,7 @@ class Block {
             return sha256(accum + elem.amount + elem.to + elem.from).toString();
         },"")
 
-        return sha256(this.index + this.timeStamp.toString() + this.previousHash + transHash).toString()
+        return sha256( this.timeStamp.toString() + this.previousHash + transHash).toString()
     }
 
 
@@ -54,7 +54,7 @@ class Blockchain {
     blocks:Block[];
 
     constructor(){
-        const genesisBlock = new Block(0, Date.now(), [] as Transaction[], "")
+        const genesisBlock = new Block(Date.now(), [] as Transaction[], "")
 
         this.blocks = [genesisBlock]
     }
