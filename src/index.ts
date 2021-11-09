@@ -1,4 +1,7 @@
-const sha256 = require('crypto-js/sha256');
+const sha3 = require('crypto-js/sha3');
+const EC = require('elliptic').ec;
+
+const ec = new EC('secp256k1');
 
 
 
@@ -6,6 +9,7 @@ class Transaction {
     amount: number;
     from: string;
     to: string;
+    signature: any;
 
     constructor(amount:number, from:string, to: string) {
         this.amount = amount;
@@ -15,9 +19,28 @@ class Transaction {
 
     getHash(): string {
         
-        return sha256(this.amount + this.from + this.to).toString();
+        return sha3(this.amount + this.from + this.to).toString();
     }
 
+    signTransaction(key: any){
+
+        if(key.getPublic('hex') !==  this.from){
+            throw new Error("Cannot sign transactions from other wallets")
+        }
+
+
+        const hash = this.getHash();
+        const s = key.sign(hash, 'base64');
+        this.signature = s.toDER();
+    }
+
+    isValidSignature(): boolean { 
+
+        if(this.from === "") return true;
+
+        const publicKey = ec.keyFromPublic(this.from, 'hex')
+        return publicKey.verify(this.getHash(), this.signature);
+    }
 }
 
 class Block {
@@ -47,10 +70,10 @@ class Block {
     getHash(): string{
 
         const transHash: string = this.transactions.reduce((accum, elem) => {
-            return sha256(accum + elem.amount + elem.to + elem.from).toString();
+            return sha3(accum + elem.amount + elem.to + elem.from).toString();
         },"")
 
-        return sha256( this.timeStamp.toString() + this.previousHash + transHash + this.nonce).toString()
+        return sha3( this.timeStamp.toString() + this.previousHash + transHash + this.nonce).toString()
     }
 
     mineBlock() {
@@ -133,15 +156,21 @@ class Blockchain {
         }
     }
 
-    validateTransaction({ to, from, amount}: Transaction): boolean {
+    validateTransaction(trans : Transaction): boolean {
         //TODO - technically transaction should be validated as a group to prevent double spends etc
+
+        let {to, from , amount} = trans;
 
         if(from === "" && amount === this.miningReward){
             return true;
         }
 
+        if(to === null || to.length == 0){
+            throw new Error("Cannot send transaction without to address")
+        }
+
         if(this.worldState[to] !== undefined && this.worldState[to] > amount){
-            return true;
+            return trans.isValidSignature();
         }else{
             return false;
         }
@@ -202,15 +231,18 @@ class Blockchain {
 let bytecoin = new Blockchain();
 
 //make some users and give them balances by fiat to start test
-let user1 = sha256("alice").toString();
-let user2 = sha256("bob").toString();
+let user1 = ec.genKeyPair();
+let user2 = ec.genKeyPair();
 bytecoin.worldState[user1] = 100;
 bytecoin.worldState[user2] = 200;
 
-let user3 = sha256("satoshi").toString();
+let user3 = sha3("satoshi").toString();
 
-let t1 = new Transaction(10, user1, user2);
-let t2 = new Transaction(20, user2, user1);
+let t1 = new Transaction(10, user1.getPublic("hex"), user2.getPublic("hex"));
+t1.signTransaction(user1);
+let t2 = new Transaction(20, user2.getPublic("hex"), user1.getPublic("hex"));
+t2.signTransaction(user2);
+
 
 bytecoin.sendTransaction(t1);
 bytecoin.sendTransaction(t2);
